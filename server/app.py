@@ -1,6 +1,7 @@
 """
 FastAPI Telemetry & WebRTC Token Server for Sovereign Voice AI.
-Supplies room tokens to Next.js web clients and exposes agent configuration endpoints.
+Supplies room tokens to Next.js web clients, exposes agent configuration endpoints,
+and streams authentic Saudi Arabic TTS audio to the browser.
 """
 
 import os
@@ -8,12 +9,14 @@ import sys
 import uuid
 import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, AsyncGenerator
 
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException, Query
+import edge_tts
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from livekit import api
@@ -154,6 +157,33 @@ async def add_faq(faq: FAQItem):
         return {"status": "success", "message": "FAQ saved to sovereign storage"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to persist FAQ: {e}")
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., description="Arabic text to synthesize")
+    voice: Optional[str] = Field(default=None, description="Edge TTS voice override")
+
+@app.post("/api/tts")
+async def synthesize_speech(req: TTSRequest):
+    """
+    Stream authentic Saudi Arabic audio from edge-tts (HamedNeural / ZariyahNeural).
+    Returns MP3 audio bytes the browser plays directly — no speechSynthesis required.
+    """
+    voice = req.voice or settings.TTS_VOICE
+
+    async def audio_stream() -> AsyncGenerator[bytes, None]:
+        communicate = edge_tts.Communicate(req.text, voice=voice)
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                yield chunk["data"]
+
+    return StreamingResponse(
+        audio_stream(),
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Voice": voice,
+        },
+    )
 
 if __name__ == "__main__":
     import uvicorn

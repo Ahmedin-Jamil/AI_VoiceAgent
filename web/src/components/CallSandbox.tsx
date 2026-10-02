@@ -31,19 +31,6 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
   const [currentLatency, setCurrentLatency] = useState<number>(290);
   const transcriptBottomRef = useRef<HTMLDivElement | null>(null);
 
-  // Initialize SpeechSynthesis voices on mount
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
-      };
-    }
-    return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
 
   // Timer for active call
   useEffect(() => {
@@ -64,37 +51,49 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
     return `${mins.toString().padStart(2, "0")}:${remaining.toString().padStart(2, "0")}`;
   };
 
-  // Real Audible Audio Playback using Web Speech API (Authentic Arabic voice)
-  const speakAudio = (text: string) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window) || isMuted) return;
+  // Authentic Saudi Arabic audio via backend edge-tts (ar-SA-HamedNeural / ZariyahNeural)
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const speakAudio = async (text: string) => {
+    if (isMuted) return;
+
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
 
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "ar-SA";
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      setAgentState("speaking");
+      const response = await fetch("http://localhost:8080/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
 
-      const voices = window.speechSynthesis.getVoices();
-      const arVoice = voices.find((v) => v.lang.startsWith("ar"));
-      if (arVoice) {
-        utterance.voice = arVoice;
-      }
+      if (!response.ok) throw new Error("TTS backend unavailable");
 
-      utterance.onstart = () => {
-        setAgentState("speaking");
-      };
-      utterance.onend = () => {
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
         setAgentState("listening");
       };
-      utterance.onerror = () => {
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
         setAgentState("listening");
       };
 
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error("Audio playback error:", e);
-      setAgentState("listening");
+      await audio.play();
+    } catch (err) {
+      // Graceful fallback: visual-only if backend not yet running
+      console.warn("TTS backend not reachable, visual-only mode:", err);
+      setTimeout(() => setAgentState("listening"), 2500);
     }
   };
 
@@ -128,8 +127,9 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
   };
 
   const handleEndCall = () => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
     setCallActive(false);
     setAgentState("idle");
@@ -139,8 +139,9 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
   const toggleMute = () => {
     const nextMute = !isMuted;
     setIsMuted(nextMute);
-    if (nextMute && typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+    if (nextMute && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
       setAgentState("listening");
     }
   };
