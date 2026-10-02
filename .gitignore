@@ -1,0 +1,56 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Hugging Face model cache
+.cache/
+
+# Local environment file (contains secrets)
+.env
+# Keep the example file
+!.env.example
+
+# Faster-Whisper model downloads
+*.bin
+*.onnx
+*.pt
+*.pth
+
+# Test artifacts
+tests/test_greeting.mp3
+tests/output/
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/.env
+web/.env.local
+web/.env.*.local
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+web/.vercel/
+
+# IDE & system
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Docker
+*.log

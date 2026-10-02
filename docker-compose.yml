@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit-server
+    restart: unless-stopped
+    command: --dev
+    ports:
+      # WebRTC HTTP & WebSocket Signaling
+      - "7880:7880"
+      # WebRTC TCP fallback
+      - "7881:7881"
+      # WebRTC UDP Media Transport (Microphone audio)
+      - "7882:7882/udp"
+    environment:
+      - LIVEKIT_KEYS=devkey: secret
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Optional local Redis for multi-node clustering and room session tracking
+  redis:
+    image: redis:7-alpine
+    container_name: livekit-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"

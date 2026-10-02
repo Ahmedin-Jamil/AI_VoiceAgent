@@ -1,0 +1,17 @@
+# LiveKit Sovereign Voice AI Platform Dependencies
+livekit>=1.1.18
+livekit-agents>=1.8.3
+livekit-plugins-silero>=1.8.3
+livekit-plugins-openai>=1.8.3
+faster-whisper>=1.2.1
+edge-tts>=7.2.8
+piper-tts>=1.8.0
+fastapi>=0.110.0
+uvicorn>=0.30.0
+pydantic>=2.7.0
+pydantic-settings>=2.15.0
+python-dotenv>=1.0.0
+sounddevice>=0.5.0
+numpy>=1.26.0
+torch>=2.0.0
+ctranslate2>=4.8.0
