@@ -65,13 +65,25 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
 
     try {
       setAgentState("speaking");
-      const response = await fetch("http://localhost:8080/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
 
-      if (!response.ok) throw new Error("TTS backend unavailable");
+      // Try relative URL first (proxied by Next.js), then direct port 8000
+      let response: Response | null = null;
+      try {
+        response = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+      } catch {
+        // Fallback to direct port 8000
+        response = await fetch("http://localhost:8000/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+      }
+
+      if (!response || !response.ok) throw new Error("TTS backend unavailable");
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -91,9 +103,21 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
 
       await audio.play();
     } catch (err) {
-      // Graceful fallback: visual-only if backend not yet running
-      console.warn("TTS backend not reachable, visual-only mode:", err);
-      setTimeout(() => setAgentState("listening"), 2500);
+      console.warn("Neural audio backend error, falling back to browser speech:", err);
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = "ar-SA";
+          utterance.onend = () => setAgentState("listening");
+          utterance.onerror = () => setAgentState("listening");
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          setTimeout(() => setAgentState("listening"), 2500);
+        }
+      } else {
+        setTimeout(() => setAgentState("listening"), 2500);
+      }
     }
   };
 

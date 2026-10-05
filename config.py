@@ -54,7 +54,7 @@ class Settings(BaseSettings):
 
     # Telemetry and Backend API
     API_HOST: str = Field(default=os.getenv("API_HOST", "0.0.0.0"))
-    API_PORT: int = Field(default=int(os.getenv("API_PORT", "8080")))
+    API_PORT: int = Field(default=int(os.getenv("API_PORT", "8000")))
 
     class Config:
         env_file = ".env"

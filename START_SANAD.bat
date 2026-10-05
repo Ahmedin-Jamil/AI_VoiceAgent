@@ -35,9 +35,9 @@ if exist "%OLLAMA_EXE%" (
 )
 
 :: ── Start FastAPI Backend ─────────────────────────────────────────────────
-echo [2/4] Starting FastAPI backend (port 8080)...
+echo [2/4] Starting FastAPI backend (port 8000)...
 echo        → Token API, TTS Streaming, Health Check, KB API
-start "Sanad FastAPI Backend" cmd /k "call .venv\Scripts\activate.bat && python -m uvicorn server.app:app --host 0.0.0.0 --port 8080 --reload"
+start "Sanad FastAPI Backend" cmd /k "call .venv\Scripts\activate.bat && python -m uvicorn server.app:app --host 0.0.0.0 --port 8000 --reload"
 timeout /t 3 /nobreak >nul
 
 :: ── Start Next.js Dashboard ───────────────────────────────────────────────
@@ -55,13 +55,13 @@ echo.
 echo  ✅ ALL SERVICES STARTED
 echo  ══════════════════════════════════════════════
 echo    Web Dashboard  →  http://localhost:3000
-echo    FastAPI Backend →  http://localhost:8080
-echo    API Docs        →  http://localhost:8080/docs
-echo    Health Check    →  http://localhost:8080/api/health
+echo    FastAPI Backend →  http://localhost:8000
+echo    API Docs        →  http://localhost:8000/docs
+echo    Health Check    →  http://localhost:8000/api/health
 echo  ══════════════════════════════════════════════
 echo.
 echo  ℹ️  AUDIO SETUP (for real Saudi voice in browser):
-echo     Backend must be running on port 8080 for HamedNeural TTS.
+echo     Backend must be running on port 8000 for HamedNeural TTS.
 echo     If you hear no audio, check the FastAPI window for errors.
 echo.
 echo  ℹ️  LLM SETUP (for live AI responses):

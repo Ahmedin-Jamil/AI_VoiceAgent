@@ -277,3 +277,13 @@ def get_dialect_greeting(dialect: str) -> str:
 def get_dialect_voice(dialect: str) -> str:
     """Return the preferred TTS voice for the given dialect."""
     return DIALECT_CONFIG.get(dialect, DIALECT_CONFIG["najdi"])["tts_voice"]
+
+
+# ─────────────────────────────────────────────
+# BACKWARDS COMPATIBILITY ALIASES
+# ─────────────────────────────────────────────
+SYSTEM_PROMPTS: Dict[str, str] = {k: v["system_prompt"] for k, v in DIALECT_CONFIG.items()}
+GREETINGS: Dict[str, str] = {k: v["greeting"] for k, v in DIALECT_CONFIG.items()}
+
+get_system_prompt = get_dialect_prompt
+get_initial_greeting = get_dialect_greeting

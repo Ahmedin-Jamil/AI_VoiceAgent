@@ -165,25 +165,33 @@ class TTSRequest(BaseModel):
 @app.post("/api/tts")
 async def synthesize_speech(req: TTSRequest):
     """
-    Stream authentic Saudi Arabic audio from edge-tts (HamedNeural / ZariyahNeural).
-    Returns MP3 audio bytes the browser plays directly — no speechSynthesis required.
+    Synthesize authentic Saudi Arabic audio from edge-tts (HamedNeural / ZariyahNeural).
+    Returns complete MP3 audio bytes with Content-Length for instant playback.
     """
     voice = req.voice or settings.TTS_VOICE
-
-    async def audio_stream() -> AsyncGenerator[bytes, None]:
+    try:
         communicate = edge_tts.Communicate(req.text, voice=voice)
+        audio_bytes = bytearray()
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
-                yield chunk["data"]
+                audio_bytes.extend(chunk["data"])
 
-    return StreamingResponse(
-        audio_stream(),
-        media_type="audio/mpeg",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Voice": voice,
-        },
-    )
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="No audio received from TTS engine")
+
+        from fastapi import Response
+        return Response(
+            content=bytes(audio_bytes),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Length": str(len(audio_bytes)),
+                "Cache-Control": "no-cache",
+                "X-Voice": voice,
+            },
+        )
+    except Exception as e:
+        logger.error(f"TTS synthesis failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
