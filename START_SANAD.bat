@@ -21,16 +21,16 @@ if not exist ".venv" (
 :: ── Activate venv ─────────────────────────────────────────────────────────
 call .venv\Scripts\activate.bat
 
-:: ── Check if Ollama is installed ──────────────────────────────────────────
-where ollama >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [1/4] Starting Ollama (local LLM)...
-    start "Ollama LLM Server" /min cmd /c "ollama serve"
-    timeout /t 2 /nobreak >nul
+:: ── Start Ollama (portable install) ──────────────────────────────────────
+set OLLAMA_EXE=%USERPROFILE%\ollama\ollama.exe
+if exist "%OLLAMA_EXE%" (
+    echo [1/4] Starting Ollama LLM server (qwen2.5:7b - Arabic)...
+    set OLLAMA_MODELS=%USERPROFILE%\.ollama\models
+    start "Ollama LLM Server" /min "%OLLAMA_EXE%" serve
+    timeout /t 3 /nobreak >nul
 ) else (
-    echo [WARN] Ollama not installed - LLM responses will be demo-only.
-    echo        Install from: https://ollama.com/download
-    echo        Then run:     ollama pull qwen2.5:7b
+    echo [WARN] Ollama not found at %OLLAMA_EXE%
+    echo        Run: C:\Users\john-PC\ollama\ollama.exe serve
     echo.
 )
 
