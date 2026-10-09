@@ -170,7 +170,9 @@ async def synthesize_speech(req: TTSRequest):
     """
     voice = req.voice or settings.TTS_VOICE
     try:
-        communicate = edge_tts.Communicate(req.text, voice=voice)
+        from agent.phonetic_normalizer import normalize_saudi_arabic
+        normalized_text = normalize_saudi_arabic(req.text)
+        communicate = edge_tts.Communicate(normalized_text, voice=voice)
         audio_bytes = bytearray()
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
