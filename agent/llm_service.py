@@ -110,7 +110,7 @@ def create_llm_engine(
                 "  👉 https://aistudio.google.com/\n"
                 "And set in .env: GEMINI_API_KEY=AIzaSyxxxx..."
             )
-        gemini_model = selected_model if "gemini" in selected_model else "gemini-2.0-flash"
+        gemini_model = selected_model if "gemini" in selected_model else "gemini-3.8-flash"
         logger.info(f"Initializing Google Gemini API (FREE Tier): model='{gemini_model}'")
         return openai_plugin.LLM(
             model=gemini_model,
