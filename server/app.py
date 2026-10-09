@@ -177,24 +177,34 @@ async def synthesize_speech(req: TTSRequest):
             import urllib.request
             import json
 
-            voice_id = settings.ELEVENLABS_VOICE_ID or "pNInz6obpgDQGcFmaJgB"
-            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-            headers = {
-                "xi-api-key": settings.ELEVENLABS_API_KEY,
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "text": req.text,
-                "model_id": "eleven_multilingual_v2",
-                "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75
+            try:
+                voice_id = settings.ELEVENLABS_VOICE_ID or "pNInz6obpgDQGcFmaJgB"
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+                headers = {
+                    "xi-api-key": settings.ELEVENLABS_API_KEY,
+                    "Content-Type": "application/json"
                 }
-            }
-            data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-            request = urllib.request.Request(url, data=data, headers=headers)
-            with urllib.request.urlopen(request) as response:
-                audio_bytes = response.read()
+                payload = {
+                    "text": req.text,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.75
+                    }
+                }
+                data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+                request = urllib.request.Request(url, data=data, headers=headers)
+                with urllib.request.urlopen(request) as response:
+                    audio_bytes = response.read()
+            except Exception as ele_err:
+                logger.warning(f"ElevenLabs API error ({ele_err}). Falling back to Saudi EdgeTTS.")
+                voice = req.voice or settings.TTS_VOICE
+                from agent.phonetic_normalizer import normalize_saudi_arabic
+                normalized_text = normalize_saudi_arabic(req.text)
+                communicate = edge_tts.Communicate(normalized_text, voice=voice)
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_bytes.extend(chunk["data"])
 
         else:
             voice = req.voice or settings.TTS_VOICE

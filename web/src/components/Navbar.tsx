@@ -67,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300">
             <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Faster-Whisper + Llama 3.1</span>
+            <span>Gemini 3.8 + ElevenLabs</span>
           </div>
         </div>
       </div>

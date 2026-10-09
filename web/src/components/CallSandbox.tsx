@@ -399,11 +399,11 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
               <span className="font-mono text-zinc-200">~120ms</span>
             </div>
             <div className="flex items-center justify-between py-1.5 border-b border-zinc-900">
-              <span className="text-zinc-400">3. التفكير والرد (Llama-3.1-8B)</span>
+              <span className="text-zinc-400">3. التفكير والرد (Google Gemini 3.8)</span>
               <span className="font-mono text-zinc-200">~90ms TTFT</span>
             </div>
             <div className="flex items-center justify-between py-1.5 border-b border-zinc-900">
-              <span className="text-zinc-400">4. توليد الصوت السعودي (Neural TTS)</span>
+              <span className="text-zinc-400">4. توليد الصوت البشري (ElevenLabs TTS)</span>
               <span className="font-mono text-zinc-200">~45ms First Chunk</span>
             </div>
             <div className="flex items-center justify-between pt-1">

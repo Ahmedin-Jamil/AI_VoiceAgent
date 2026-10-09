@@ -109,13 +109,13 @@ export const TelemetryTab: React.FC = () => {
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-xs space-y-1">
             <span className="text-zinc-400">3. استجابة الدماغ (LLM TTFT)</span>
             <div className="text-lg font-bold font-mono text-indigo-400">90 ms</div>
-            <p className="text-[10px] text-zinc-500">Llama-3.1-8B-Instruct via vLLM</p>
+            <p className="text-[10px] text-zinc-500">Google Gemini 3.8 Flash (Cloud Free)</p>
           </div>
 
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-xs space-y-1">
             <span className="text-zinc-400">4. توليد الصوت (TTS Chunk)</span>
             <div className="text-lg font-bold font-mono text-blue-400">45 ms</div>
-            <p className="text-[10px] text-zinc-500">Saudi Neural TTS (Hamed / Zariyah)</p>
+            <p className="text-[10px] text-zinc-500">ElevenLabs Human Voice (Saudi Dialect)</p>
           </div>
         </div>
       </div>
