@@ -22,13 +22,14 @@ class Settings(BaseSettings):
     STT_LANGUAGE: str = Field(default=os.getenv("STT_LANGUAGE", "ar"))
 
     # LLM Settings (Dialogue Manager)
-    LLM_PROVIDER: Literal["ollama", "vllm", "openai", "allam", "hf_endpoint"] = Field(
+    LLM_PROVIDER: Literal["ollama", "vllm", "openai", "allam", "hf_endpoint", "gemini"] = Field(
         default=os.getenv("LLM_PROVIDER", "ollama") # type: ignore
     )
     LLM_BASE_URL: str = Field(default=os.getenv("LLM_BASE_URL", "http://127.0.0.1:11434/v1"))
     LLM_MODEL: str = Field(default=os.getenv("LLM_MODEL", "qwen2.5:7b"))
     LLM_API_KEY: str = Field(default=os.getenv("LLM_API_KEY", "ollama"))
     LLM_TEMPERATURE: float = Field(default=float(os.getenv("LLM_TEMPERATURE", "0.4")))
+    GEMINI_API_KEY: str = Field(default=os.getenv("GEMINI_API_KEY", ""))
 
     # ALLAM — Arabic Large Language Model (SDAIA / HUMAIN) via HF Dedicated Endpoint
     # Free option: ollama pull allam (local) | ollama pull qwen2.5:7b (also great for Arabic)

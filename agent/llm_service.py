@@ -29,6 +29,7 @@ Set in .env:
   ALLAM_HF_API_KEY=hf_xxxxxxxxxxxx
 """
 
+import os
 import logging
 from typing import Optional
 from livekit.agents import llm
@@ -98,6 +99,24 @@ def create_llm_engine(
         )
         return create_llm_engine(
             model=model, base_url=base_url, temperature=temperature, provider="hf_endpoint"
+        )
+
+    # ── Google Gemini API (100% FREE via Google AI Studio) ───────────────
+    if selected_provider == "gemini":
+        gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "") or settings.LLM_API_KEY
+        if not gemini_key or gemini_key == "ollama":
+            raise ValueError(
+                "For LLM_PROVIDER=gemini, please get a FREE API key from:\n"
+                "  👉 https://aistudio.google.com/\n"
+                "And set in .env: GEMINI_API_KEY=AIzaSyxxxx..."
+            )
+        gemini_model = selected_model if "gemini" in selected_model else "gemini-2.0-flash"
+        logger.info(f"Initializing Google Gemini API (FREE Tier): model='{gemini_model}'")
+        return openai_plugin.LLM(
+            model=gemini_model,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=gemini_key,
+            temperature=selected_temp,
         )
 
     # ── Self-hosted: Ollama / vLLM (RECOMMENDED for free local inference) ─
