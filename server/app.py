@@ -165,30 +165,56 @@ class TTSRequest(BaseModel):
 @app.post("/api/tts")
 async def synthesize_speech(req: TTSRequest):
     """
-    Synthesize authentic Saudi Arabic audio from edge-tts (HamedNeural / ZariyahNeural).
+    Synthesize authentic Saudi Arabic audio via ElevenLabs or EdgeTTS.
     Returns complete MP3 audio bytes with Content-Length for instant playback.
     """
-    voice = req.voice or settings.TTS_VOICE
     try:
-        from agent.phonetic_normalizer import normalize_saudi_arabic
-        normalized_text = normalize_saudi_arabic(req.text)
-        communicate = edge_tts.Communicate(normalized_text, voice=voice)
+        from fastapi import Response
         audio_bytes = bytearray()
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_bytes.extend(chunk["data"])
+        selected_provider = settings.TTS_PROVIDER
+
+        if selected_provider == "elevenlabs" and settings.ELEVENLABS_API_KEY:
+            import urllib.request
+            import json
+
+            voice_id = settings.ELEVENLABS_VOICE_ID or "pNInz6obpgDQGcFmaJgB"
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+            headers = {
+                "xi-api-key": settings.ELEVENLABS_API_KEY,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "text": req.text,
+                "model_id": "eleven_multilingual_v2",
+                "voice_settings": {
+                    "stability": 0.5,
+                    "similarity_boost": 0.75
+                }
+            }
+            data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            request = urllib.request.Request(url, data=data, headers=headers)
+            with urllib.request.urlopen(request) as response:
+                audio_bytes = response.read()
+
+        else:
+            voice = req.voice or settings.TTS_VOICE
+            from agent.phonetic_normalizer import normalize_saudi_arabic
+            normalized_text = normalize_saudi_arabic(req.text)
+            communicate = edge_tts.Communicate(normalized_text, voice=voice)
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_bytes.extend(chunk["data"])
 
         if not audio_bytes:
             raise HTTPException(status_code=500, detail="No audio received from TTS engine")
 
-        from fastapi import Response
         return Response(
             content=bytes(audio_bytes),
             media_type="audio/mpeg",
             headers={
                 "Content-Length": str(len(audio_bytes)),
                 "Cache-Control": "no-cache",
-                "X-Voice": voice,
+                "X-Provider": selected_provider,
             },
         )
     except Exception as e:

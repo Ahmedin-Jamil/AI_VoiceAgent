@@ -40,13 +40,12 @@ class Settings(BaseSettings):
 
 
     # TTS Settings (Text-to-Speech)
-    TTS_PROVIDER: Literal["edge-tts", "piper", "openai"] = Field(
-        default=os.getenv("TTS_PROVIDER", "edge-tts") # type: ignore
+    TTS_PROVIDER: Literal["edge-tts", "piper", "openai", "elevenlabs"] = Field(
+        default=os.getenv("TTS_PROVIDER", "elevenlabs") # type: ignore
     )
-    # Authentic Saudi Arabic voices:
-    # "ar-SA-HamedNeural" (Male, Riyadh/Saudi authentic)
-    # "ar-SA-ZariyahNeural" (Female, Riyadh/Saudi authentic)
     TTS_VOICE: str = Field(default=os.getenv("TTS_VOICE", "ar-SA-HamedNeural"))
+    ELEVENLABS_API_KEY: str = Field(default=os.getenv("ELEVENLABS_API_KEY", ""))
+    ELEVENLABS_VOICE_ID: str = Field(default=os.getenv("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB"))
 
     # Dialect and Persona defaults
     DEFAULT_DIALECT: Literal["najdi", "hijazi", "fusha", "bilingual"] = Field(
