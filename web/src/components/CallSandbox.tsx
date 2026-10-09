@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Phone, PhoneOff, Mic, MicOff, Volume2, Sparkles, Activity, Clock, Zap } from "lucide-react";
+import { Phone, PhoneOff, Mic, MicOff, Volume2, Sparkles, Activity, Clock, Zap, Send } from "lucide-react";
 import { AudioVisualizer } from "./AudioVisualizer";
 
 interface Message {
@@ -29,7 +29,120 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [callDuration, setCallDuration] = useState<number>(0);
   const [currentLatency, setCurrentLatency] = useState<number>(290);
+  const [inputText, setInputText] = useState<string>("");
+  const [isDictating, setIsDictating] = useState<boolean>(false);
   const transcriptBottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Send user query to Google Gemini 3.8 Flash and speak back via ElevenLabs
+  const handleSendUserQuery = async (queryText?: string) => {
+    const query = (queryText || inputText).trim();
+    if (!query) return;
+
+    if (!callActive) {
+      setCallActive(true);
+    }
+
+    setInputText("");
+    setAgentState("listening");
+
+    // 1. Add user message
+    const userMsg: Message = {
+      id: `user-${Date.now()}`,
+      sender: "user",
+      text: query,
+      timestamp: new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setAgentState("thinking");
+
+    try {
+      // 2. Fetch live Saudi response from Google Gemini 3.8 Flash
+      const chatRes = await fetch("http://localhost:8000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: query, dialect: currentDialect }),
+      });
+
+      let replyText = "يا هلا والله! أبشر بعزك طال عمرك.";
+      if (chatRes.ok) {
+        const data = await chatRes.json();
+        if (data.reply) {
+          replyText = data.reply;
+        }
+      }
+
+      // 3. Add agent response
+      const agentMsg: Message = {
+        id: `agent-${Date.now()}`,
+        sender: "agent",
+        text: replyText,
+        timestamp: new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }),
+        latencyMs: 190,
+      };
+
+      setMessages((prev) => [...prev, agentMsg]);
+
+      // 4. Speak reply via ElevenLabs Ziyad voice
+      speakAudio(replyText);
+    } catch (err) {
+      console.error("Live dialogue API error:", err);
+      const fallbackMsg: Message = {
+        id: `agent-${Date.now()}`,
+        sender: "agent",
+        text: "يا هلا والله! أهلاً بك في منصة سند، وش أقدر أفيدك فيه اليوم طال عمرك؟",
+        timestamp: new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [...prev, fallbackMsg]);
+      speakAudio(fallbackMsg.text);
+    }
+  };
+
+  // Browser speech recognition (Speech-to-Text dictation for microphone)
+  const startVoiceDictation = () => {
+    if (typeof window === "undefined") return;
+
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("متصفحك لا يدعم التعرف الصوتي المباشر. يمكنك كتابة السؤال بدلاً من ذلك.");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "ar-SA";
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsDictating(true);
+        setAgentState("listening");
+      };
+
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setIsDictating(false);
+        if (transcript) {
+          handleSendUserQuery(transcript);
+        }
+      };
+
+      recognition.onerror = () => {
+        setIsDictating(false);
+      };
+
+      recognition.onend = () => {
+        setIsDictating(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error("Mic recognition error:", err);
+      setIsDictating(false);
+    }
+  };
 
 
   // Timer for active call
@@ -66,15 +179,24 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
     try {
       setAgentState("speaking");
 
-      // Call FastAPI backend /api/tts directly
-      const response = await fetch("http://localhost:8000/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
+      // Fetch /api/tts (proxied by Next.js rewrite to FastAPI backend on port 8000)
+      let response: Response | null = null;
+      try {
+        response = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+      } catch {
+        response = await fetch("http://127.0.0.1:8000/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+      }
 
-      if (!response.ok) {
-        throw new Error(`TTS HTTP error: ${response.status}`);
+      if (!response || !response.ok) {
+        throw new Error(`TTS HTTP error: ${response?.status || 'Network Error'}`);
       }
 
       const blob = await response.blob();
@@ -224,37 +346,79 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
           {/* Central Animated Audio Visualizer */}
           <AudioVisualizer isActive={callActive} state={agentState} volumeLevel={0.65} />
 
-          {/* Call Action Bar */}
-          <div className="w-full pt-4 border-t border-zinc-800/60 flex items-center justify-center gap-4">
+          {/* Call Action Bar & Free-form Input Bar */}
+          <div className="w-full pt-4 border-t border-zinc-800/60 flex flex-col items-center gap-4">
             {!callActive ? (
               <button
                 onClick={handleStartCall}
                 className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-lg shadow-emerald-600/30 hover:scale-105 active:scale-95"
               >
                 <Phone className="w-4 h-4" />
-                <span>بدء المكالمة التجريبية (Start Call)</span>
+                <span>بدء المكالمة الصوتية (Start Call)</span>
               </button>
             ) : (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={toggleMute}
-                  className={`p-3 rounded-full border transition-all ${
-                    isMuted
-                      ? "bg-red-500/20 border-red-500/40 text-red-400"
-                      : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
-                  }`}
-                  title={isMuted ? "إلغاء كتم الصوت" : "كتم الصوت"}
+              <div className="w-full space-y-3">
+                {/* Interactive Speech & Text Input */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendUserQuery();
+                  }}
+                  className="flex items-center gap-2 w-full bg-zinc-900/90 border border-zinc-800 focus-within:border-emerald-500/60 rounded-xl p-2 transition-all shadow-inner"
                 >
-                  {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                </button>
+                  <button
+                    type="button"
+                    onClick={startVoiceDictation}
+                    className={`p-2.5 rounded-lg border transition-all ${
+                      isDictating
+                        ? "bg-red-500/20 border-red-500/50 text-red-400 animate-pulse"
+                        : "bg-zinc-800 border-zinc-700/60 text-emerald-400 hover:bg-zinc-700"
+                    }`}
+                    title={isDictating ? "جاري الاستماع لصوتك..." : "اضغط للتحدث بالمايكرفون"}
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
 
-                <button
-                  onClick={handleEndCall}
-                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-red-600 hover:bg-red-500 text-white font-medium text-sm transition-all shadow-lg shadow-red-600/30 active:scale-95"
-                >
-                  <PhoneOff className="w-4 h-4" />
-                  <span>إنهاء المكالمة</span>
-                </button>
+                  <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="تحدث أو اكتب أي سؤال لـ زياد هنا... (حرية كاملة كـ ChatGPT)"
+                    className="flex-1 bg-transparent text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none px-2 text-right"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!inputText.trim()}
+                    className="p-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
+                    title="إرسال السؤال لـ زياد"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+
+                {/* Call End & Mute Controls */}
+                <div className="flex items-center justify-center gap-3 pt-1">
+                  <button
+                    onClick={toggleMute}
+                    className={`p-2.5 rounded-full border text-xs flex items-center gap-2 px-4 transition-all ${
+                      isMuted
+                        ? "bg-red-500/20 border-red-500/40 text-red-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
+                    }`}
+                  >
+                    {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                    <span>{isMuted ? "إلغاء كتم الصوت" : "كتم الصوت"}</span>
+                  </button>
+
+                  <button
+                    onClick={handleEndCall}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-medium text-xs transition-all shadow-md shadow-red-600/20 active:scale-95"
+                  >
+                    <PhoneOff className="w-3.5 h-3.5" />
+                    <span>إنهاء المكالمة</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

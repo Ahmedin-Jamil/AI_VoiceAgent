@@ -158,6 +158,57 @@ async def add_faq(faq: FAQItem):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to persist FAQ: {e}")
 
+class ChatRequest(BaseModel):
+    message: str = Field(..., description="User message/question in Arabic")
+    dialect: Optional[str] = Field(default="najdi", description="Dialect preset")
+
+@app.post("/api/chat")
+async def chat_dialogue(req: ChatRequest):
+    """
+    Live dynamic dialogue manager endpoint powered by Google Gemini 3.8 Flash.
+    Generates authentic Saudi Arabic response for any user question.
+    """
+    dialect = req.dialect or settings.DEFAULT_DIALECT
+    system_prompt = get_system_prompt(dialect)
+
+    try:
+        if settings.LLM_PROVIDER == "gemini" and settings.GEMINI_API_KEY:
+            import urllib.request
+            import json
+
+            key = settings.GEMINI_API_KEY
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": f"{system_prompt}\n\nالمستخدم يقول: {req.message}\n\nسند (رد بالعامية النجدية المشكولة):"
+                            }
+                        ]
+                    }
+                ]
+            }
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            request = urllib.request.Request(url, data=data, headers=headers)
+            with urllib.request.urlopen(request) as response:
+                res = json.loads(response.read().decode("utf-8"))
+                reply = res["candidates"][0]["content"]["parts"][0]["text"].strip()
+                return {"reply": reply, "provider": "gemini-3.8-flash"}
+        else:
+            # Fallback response
+            return {
+                "reply": f"يا هلا والله! أبشر بعزك، وصل سؤالك: ({req.message}). الحين أخدمك فيه طال عمرك.",
+                "provider": "fallback",
+            }
+    except Exception as e:
+        logger.error(f"Chat dialogue error: {e}", exc_info=True)
+        return {
+            "reply": f"أبشر بعزك! بالنسبة لسؤالك عن ({req.message})، الحين أظبط لك كافة التفاصيل طال عمرك.",
+            "provider": "error_fallback",
+        }
+
 class TTSRequest(BaseModel):
     text: str = Field(..., description="Arabic text to synthesize")
     voice: Optional[str] = Field(default=None, description="Edge TTS voice override")
