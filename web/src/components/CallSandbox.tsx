@@ -66,24 +66,16 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
     try {
       setAgentState("speaking");
 
-      // Try relative URL first (proxied by Next.js), then direct port 8000
-      let response: Response | null = null;
-      try {
-        response = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-      } catch {
-        // Fallback to direct port 8000
-        response = await fetch("http://localhost:8000/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-      }
+      // Call FastAPI backend /api/tts directly
+      const response = await fetch("http://localhost:8000/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
 
-      if (!response || !response.ok) throw new Error("TTS backend unavailable");
+      if (!response.ok) {
+        throw new Error(`TTS HTTP error: ${response.status}`);
+      }
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -95,7 +87,8 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
         audioRef.current = null;
         setAgentState("listening");
       };
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.error("Audio playback error:", e);
         URL.revokeObjectURL(url);
         audioRef.current = null;
         setAgentState("listening");
@@ -103,21 +96,8 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
 
       await audio.play();
     } catch (err) {
-      console.warn("Neural audio backend error, falling back to browser speech:", err);
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        try {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = "ar-SA";
-          utterance.onend = () => setAgentState("listening");
-          utterance.onerror = () => setAgentState("listening");
-          window.speechSynthesis.speak(utterance);
-        } catch {
-          setTimeout(() => setAgentState("listening"), 2500);
-        }
-      } else {
-        setTimeout(() => setAgentState("listening"), 2500);
-      }
+      console.error("ElevenLabs / Backend TTS error:", err);
+      setTimeout(() => setAgentState("listening"), 2500);
     }
   };
 
@@ -171,12 +151,8 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
   };
 
   // Simulate user speaking during test
-  const handleSimulateUserSpeech = (userText: string, expectedTool?: string, agentReply?: string) => {
+  const handleSimulateUserSpeech = async (userText: string, expectedTool?: string, agentReply?: string) => {
     if (!callActive) return;
-
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
 
     // 1. User speaks
     setAgentState("listening");
@@ -188,32 +164,26 @@ export const CallSandbox: React.FC<CallSandboxProps> = ({
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    setAgentState("thinking");
+    setCurrentLatency(Math.floor(270 + Math.random() * 60));
 
-    // 2. STT + LLM Thinking
-    setTimeout(() => {
-      setAgentState("thinking");
-      setCurrentLatency(Math.floor(270 + Math.random() * 60));
-    }, 700);
+    // 2. Fetch or construct dynamic reply
+    const replyText =
+      agentReply ||
+      "أبشر بسعدك! الشحنة جاهزة والتوصيل للرياض اليوم إن شاء الله.";
 
-    // 3. Agent replies via Saudi TTS
-    setTimeout(() => {
-      const replyText =
-        agentReply ||
-        "أبشر بسعدك! تم مراجعة الطلب في قاعدة البيانات المحلية وسيتم التنسيق معك فوراً.";
+    const replyMsg: Message = {
+      id: `agent-${Date.now()}`,
+      sender: "agent",
+      text: replyText,
+      timestamp: new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }),
+      toolUsed: expectedTool,
+      latencyMs: currentLatency,
+    };
+    setMessages((prev) => [...prev, replyMsg]);
 
-      const replyMsg: Message = {
-        id: `agent-${Date.now()}`,
-        sender: "agent",
-        text: replyText,
-        timestamp: new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }),
-        toolUsed: expectedTool,
-        latencyMs: currentLatency,
-      };
-      setMessages((prev) => [...prev, replyMsg]);
-
-      // Audible speech output
-      speakAudio(replyText);
-    }, 1800);
+    // Audible speech output via ElevenLabs
+    speakAudio(replyText);
   };
 
   return (
