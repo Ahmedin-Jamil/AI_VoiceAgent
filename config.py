@@ -39,13 +39,15 @@ class Settings(BaseSettings):
 
 
 
-    # TTS Settings (Text-to-Speech)
-    TTS_PROVIDER: Literal["edge-tts", "piper", "openai", "elevenlabs"] = Field(
-        default=os.getenv("TTS_PROVIDER", "elevenlabs") # type: ignore
+    # TTS Settings (Text-to-Speech) — 100% Google Gemini Native Audio
+    TTS_PROVIDER: Literal["gemini"] = Field(
+        default="gemini"
     )
-    TTS_VOICE: str = Field(default=os.getenv("TTS_VOICE", "ar-SA-HamedNeural"))
-    ELEVENLABS_API_KEY: str = Field(default=os.getenv("ELEVENLABS_API_KEY", ""))
-    ELEVENLABS_VOICE_ID: str = Field(default=os.getenv("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB"))
+    TTS_VOICE: str = Field(default=os.getenv("TTS_VOICE", "Charon"))
+    GEMINI_TTS_MODEL: str = Field(default=os.getenv("GEMINI_TTS_MODEL", "gemini-3.8-flash-tts"))
+    GEMINI_TTS_VOICE: str = Field(default=os.getenv("GEMINI_TTS_VOICE", "Charon"))
+    ELEVENLABS_API_KEY: str = Field(default="")
+    ELEVENLABS_VOICE_ID: str = Field(default="")
 
     # Dialect and Persona defaults
     DEFAULT_DIALECT: Literal["najdi", "hijazi", "fusha", "bilingual"] = Field(
